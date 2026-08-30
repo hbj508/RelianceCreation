@@ -364,6 +364,13 @@ input{font:inherit}
 }
 
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+/* A phone switched to "Desktop site" ignores the viewport meta and reports a
+   ~980px viewport, which left the app as a narrow column adrift in the middle.
+   Any touch screen gets the full width instead. */
+@media (pointer: coarse){
+  #app{max-width:none;box-shadow:none}
+}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important;transition-duration:.001ms !important}
 }
@@ -832,12 +839,13 @@ function screenDetail(number){
 /* ActivityTab.whatsAppButton: photo + order slip, sent to whichever customer
    the dealer picks.
 
-   Web Share must be invoked inside the tap that triggered it. Awaiting a fetch
-   first spends the user activation, and iOS Safari then refuses with
-   NotAllowedError - which is why the photo silently turned into a plain link.
-   So the photo is fetched when the card opens and held ready, and the tap
-   handler calls navigator.share() synchronously. */
-var readyPhoto = null;   /* {number, file} for the card currently on screen */
+   Web Share must be invoked inside the tap that triggered it - awaiting a fetch
+   first spends the user activation and iOS Safari then refuses with
+   NotAllowedError. So the photo is fetched the moment the card opens and held
+   ready, and the tap shares it synchronously. If the download is still running
+   we still try, which works on Android even though iOS may refuse. */
+var readyPhoto = null;   /* {number, file} ready to share right now */
+var photoJob = null;     /* {number, promise} download still in flight */
 
 function photoType(url){
   var ext = (url.split("?")[0].match(/\.(jpe?g|png|webp|gif)$/i) || [])[1] || "jpg";
@@ -848,22 +856,47 @@ function photoType(url){
   return {ext: ext, mime: "image/" + ({jpg:"jpeg", jpeg:"jpeg"}[ext] || ext)};
 }
 
+/* Some in-app browsers (a link opened inside WhatsApp, Instagram, Facebook)
+   expose navigator.share but refuse files. Probe with a real File. */
+function canSharePhotos(){
+  if(!window.isSecureContext || !navigator.share || !navigator.canShare) return false;
+  try{
+    return navigator.canShare({
+      files: [new File([new Uint8Array(1)], "probe.jpg", {type:"image/jpeg"})]
+    });
+  }catch(e){ return false; }
+}
+
+/* Why the photo cannot be attached, in words a dealer can act on. */
+function shareBlocker(img){
+  if(!img) return "This design has no photo yet.";
+  if(!window.isSecureContext) return "Attaching the photo needs an https address.";
+  if(!navigator.share || !navigator.canShare || !canSharePhotos()){
+    return "This browser cannot attach photos. Open the page in Chrome or Safari " +
+           "rather than inside another app, then try again.";
+  }
+  return null;
+}
+
 function prefetchPhoto(card){
   readyPhoto = null;
+  photoJob = null;
   var img = card.images[0];
-  if(!img || !navigator.share || !navigator.canShare || !window.isSecureContext) return;
+  if(!img || !canSharePhotos()) return;
 
   var t = photoType(img);
-  fetch(img)
+  var job = {number: card.number};
+  job.promise = fetch(img)
     .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
     .then(function(blob){
       var file = new File([blob], "relicard-" + numKey(card.number) + "." + t.ext,
                           {type: t.mime});
-      if(navigator.canShare({files:[file]})){
-        readyPhoto = {number: card.number, file: file};
-      }
+      if(!navigator.canShare({files:[file]})) return null;
+      readyPhoto = {number: card.number, file: file};
+      return file;
     })
-    .catch(function(){ readyPhoto = null; });   /* the link fallback still works */
+    .catch(function(){ return null; });
+  photoJob = job;
 }
 
 function shareCard(card){
@@ -873,19 +906,35 @@ function shareCard(card){
   var img = card.images[0] || "";
   var link = slip + (img ? "\n" + img : "");
 
+  function sendFile(file){
+    navigator.share({files:[file], text:slip}).catch(function(err){
+      if(err && err.name === "AbortError") return;      /* dealer closed the sheet */
+      /* Some share targets refuse files and text together and drop the photo.
+         Offer the photo on its own before giving up on it. */
+      navigator.share({files:[file]}).catch(function(err2){
+        if(err2 && err2.name === "AbortError") return;
+        whatsapp(null, link);                           /* iOS lost the gesture */
+      });
+    });
+  }
+
+  /* Ready: share inside the tap, activation intact. */
   if(readyPhoto && readyPhoto.number === card.number){
-    /* synchronous: still inside the tap, so the activation is intact */
-    navigator.share({files:[readyPhoto.file], text:slip}).catch(function(err){
-      if(err && err.name === "AbortError") return;   /* dealer closed the sheet */
-      whatsapp(null, link);
+    sendFile(readyPhoto.file);
+    return;
+  }
+
+  /* Still downloading: wait for it and try anyway rather than giving up. */
+  if(photoJob && photoJob.number === card.number){
+    toast("Preparing the photo…");
+    photoJob.promise.then(function(file){
+      if(file) sendFile(file); else whatsapp(null, link);
     });
     return;
   }
 
-  /* Say why the photo is missing rather than quietly downgrading to a link. */
-  if(img && !window.isSecureContext){
-    toast("Sending the design link. Attaching the photo needs an https address.");
-  }
+  var why = shareBlocker(img);
+  if(why) toast(why);
   whatsapp(null, link);
 }
 
