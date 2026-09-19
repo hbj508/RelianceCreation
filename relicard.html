@@ -256,6 +256,47 @@ input{font:inherit}
 .sheet .extra{margin:6px 0 0;padding:0 20px;font-size:13px;line-height:1.5;color:var(--accent-red)}
 .sheet .btnrow{padding-top:14px}
 
+/* ---------- price list ---------- */
+.pricewrap{flex:1;display:flex;flex-direction:column;min-height:0}
+.pricebody{flex:1;overflow-y:auto;padding:14px 16px calc(24px + env(safe-area-inset-bottom))}
+.pnote{margin:0 0 14px;font-size:12px;line-height:1.6;color:var(--on-variant)}
+.ptable{
+  margin:0 0 16px;background:var(--surface);
+  border:1px solid var(--outline);border-radius:16px;overflow:hidden;
+}
+.ptable h2{
+  margin:0;padding:11px 16px;background:var(--background);
+  font-family:var(--serif);font-weight:700;font-size:13px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--brand);
+}
+.ptable.flag h2{background:var(--gold-soft);color:var(--brand-dark)}
+/* Hairlines come from the cells themselves, pulled left by a pixel so the
+   column rule is shared - a gap-and-background grid would paint the outline
+   colour into the empty tracks a short last row leaves behind. */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.pgrid.wide{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.pcell{
+  display:flex;align-items:baseline;gap:8px;width:100%;
+  padding:10px 14px;text-align:left;background:var(--surface);
+  border-top:1px solid var(--outline);border-left:1px solid var(--outline);
+  margin-left:-1px;
+}
+.pcell .pno{flex:1;font-family:var(--serif);font-weight:700;font-size:14px;color:var(--on-surface)}
+.pcell .sub{
+  display:block;margin-top:1px;font-family:var(--sans);font-weight:400;
+  font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--on-variant);
+}
+.pcell .prate{
+  font-family:var(--serif);font-weight:800;font-size:14px;
+  color:var(--accent-red);white-space:nowrap;
+}
+.pcell.link .pno{
+  color:var(--brand);text-decoration:underline;
+  text-decoration-color:var(--gold);text-underline-offset:3px;
+}
+.pcell.link:active{background:var(--background)}
+.pfoot{margin:2px 0 0;font-size:12px;line-height:1.75;color:var(--on-variant)}
+
 /* ---------- prose screens ---------- */
 .scroll{flex:1;overflow-y:auto;padding:16px 16px calc(24px + env(safe-area-inset-bottom))}
 .textcard{padding:18px;font-size:14px;line-height:1.65;color:var(--on-variant)}
@@ -463,6 +504,76 @@ var TERMS =
 "*For Stock equiry & order call on 022-22061939/ 40221939 prefered.\n\n" +
 "*If Possible Please Send Photo On Watsapp from our App To Confirm.\n";
 
+/* ============================================================
+   PRICE LIST - "2026-2027 PRICE LIST NETT w.e.f. 17-09-2026", typed in from
+   the printed colour sheet. It is deliberately static: the sheet covers every
+   number the works can quote, including designs that were never photographed
+   into the catalogue, so it cannot be derived from the synced JSON. When a
+   number does exist in the catalogue its cell links through to the design.
+   ============================================================ */
+var PRICE_SEASON    = "2026-2027";
+var PRICE_EFFECTIVE = "17-09-2026";
+
+/* "no:rate" pairs, laid out ten to a line the way the sheet prints them. */
+function priceRows(spec){
+  return spec.trim().split(/\s+/).map(function(pair){
+    var p = pair.split(":");
+    return {no:p[0], rate:p[1]};
+  });
+}
+
+var PRICE_SHEET = [
+  {title:"Card Rates", rows:priceRows(
+    "101:5700 102:7300 103:4100 104:4800 105:4100 106:3800 107:4900 108:5000 109:4800 110:5000 " +
+    "111:6850 112:7700 113:5500 114:8550 115:7700 116:9100 117:7300 118:5800 119:6200 120:6050 " +
+    "121:4950 122:5500 123:5800 124:5500 125:6850 126:5100 127:3150 128:3100 129:3100 130:2600 " +
+    "131:5100 132:2800 133:2550 134:2750 135:2550 136:3400 137:3450 138:2700 139:2850 140:2550 " +
+    "141:1900 142:2250 143:2950 144:2700 145:3550 146:2450 147:2250 148:2000 149:1900 150:2250 " +
+    "151:2050 152:1900 153:1650 154:5800 155:3950 156:9800 157:9500 158:9500 159:9500 160:1800 " +
+    "161:1800 162:1800 163:1600 164:1400 165:1300 166:1500 167:800 168:1050 169:1050 170:1300 " +
+    "171:1300 172:1200 173:1100 174:1300 175:1300 176:1300 177:1700 178:1400 179:1400 180:1400 " +
+    "181:1600 182:1900 183:1400 184:1400 185:1700 186:2100 187:2100 188:2100 189:1500 190:850 " +
+    "191:2250 192:2300 193:2200 194:2650 195:1400 196:2000 197:1500 198:960 199:960 200:900 " +
+    "201:3300 202:3000 203:1300 400:2400 417:11500 420:1800 421:1900 427:4200 430:3800 433:4000 " +
+    "434:4000 435:4000 436:4000 437:4500 438:5800 641:3800 652:3300 653:3100 656:1500 661:3500 " +
+    "662:3800 664:3500 665:3400 666:3800 667:3800 668:3200 669:3800 670:3800 671:3800 672:3800 " +
+    "673:3800 785:2500 1407:1250 1450:1300 1500:950 1501:950 1535:800 1545:850 1547:600 1549:1500 " +
+    "1557:1350 1559:1400 1565:800 1566:2000 1567:2300 1568:1100 1569:1100 1570:1100 1571:1100 1572:1100 " +
+    "1573:900 1574:900 1575:1000 1576:1000 1577:600 1578:600 1579:900 1580:900 1581:850 1582:850 " +
+    "1583:1000 1584:1000 1585:900 1586:2000 1587:1900 1588:1100 1589:600 1590:600 1591:1550 1592:800 " +
+    "1593:1200 1594:1400 1595:1000 1596:1100 1597:900 1598:900 1599:900 1600:1000 1601:1000 1602:950 " +
+    "1603:950 1604:1100 1627:1700 1639:1600 1672:1250 1679:3000 1680:1400 1685:2800 1686:4200 1687:4000 " +
+    "1705:3400 1706:3400 1715:1600 1719:1550 1721:1600 1722:1200 1723:1800 1728:4200 1731:4000 1735:4200 " +
+    "1737:1300 1738:1150 1739:1800 1740:1600 1741:1500 1742:1400 1743:1600 1744:4800 1745:5000 1746:3200 " +
+    "1747:3200 1748:4000 1749:3000 1750:4100 1751:3000 1752:4100 1753:4100 1754:4000 1755:4300 1756:4300 " +
+    "1757:3900 1758:3300 1759:3700 1760:3900 1761:3300 1762:3800 1763:2000 1764:2000")},
+
+  {title:"Limited Stock", flag:true, rows:priceRows("1390:850 1392:950 1394:700")},
+
+  {title:"Sweet Box", wide:true, rows:[
+    {no:"S.B.-7", rate:"12000", sub:"with 2 inner"},
+    {no:"S.B.-8", rate:"13000", sub:"with 2 inner"},
+    {no:"S.B.-9", rate:"10000", sub:"with 2 inner"}
+  ]},
+
+  {title:"Gift Envelope", wide:true, rows:[
+    {no:"GC-1 to GC-23", rate:"330"},
+    {no:"GC-24 to GC-28", rate:"300"}
+  ]}
+];
+
+/* The small print the sheet carries under the tables. */
+var PRICE_FOOT =
+  '<p class="pfoot">*GST extra as applicable.<br>' +
+    '*All above rates are rates for 100 cards blank.<br>' +
+    '*This price list cancels all our previous price list.</p>' +
+  '<p class="orderline">*ORDER IN PROPORTION OF 50</p>' +
+  '<p class="orderline strike">(25, 75, 125, 175, 225, 275)</p>' +
+  '<div class="btnrow" style="padding:18px 0 0">' +
+    '<button class="mbtn outlined" data-go="#/terms">Terms &amp; Condition</button>' +
+    '<button class="mbtn filled" data-wa="' + SHOP_WA + '">WhatsApp</button>' +
+  "</div>";
+
 /* strings.xml: journey */
 var JOURNEY = [
 "Reliance Creation, established in 1991 in the field of manufacturing wedding and invitation cards. It started manufacturing wedding cards at Rs. 28/- per 100. The company is now making wedding cards ranging from Rs. 10/- to Rs. 150/- per piece.",
@@ -496,6 +607,13 @@ var ICON_ADD =
 'stroke-linecap="round" stroke-linejoin="round">' +
 '<path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.4 9.6V20h13.2V9.6"/>' +
 '<path d="M12 12.4v4.8M9.6 14.8h4.8"/></svg>';
+
+/* price tag: the printed rate sheet */
+var ICON_TAG =
+'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" ' +
+'stroke-linecap="round" stroke-linejoin="round">' +
+'<path d="M12.6 3H21v8.4l-9.3 9.3a1.5 1.5 0 0 1-2.1 0l-6.3-6.3a1.5 1.5 0 0 1 0-2.1Z"/>' +
+'<circle cx="17.2" cy="6.8" r="1.3"/></svg>';
 
 function esc(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
@@ -701,6 +819,10 @@ function screenHome(){
 
       '<button class="searchpill" data-go="#/c/allsearch">' + ICON_SEARCH +
         "<span>Search by card number</span>" +
+      "</button>" +
+
+      '<button class="searchpill" data-go="#/prices">' + ICON_TAG +
+        "<span>Price list \u00b7 w.e.f. " + esc(PRICE_EFFECTIVE) + "</span>" +
       "</button>" +
 
       '<div class="tilegrid">' +
@@ -991,6 +1113,74 @@ function shareCard(card){
   shareText(link);
 }
 
+/* Sweet box and gift cover codes print as "S.B.-7"/"GC-1", card numbers as
+   plain digits that the sheet prefixes with "No.". */
+function priceLabel(no){ return /^\d/.test(no) ? "No." + no : no; }
+
+function priceCellHTML(row){
+  var card = byNumber(row.no);
+  var inner =
+    '<span class="pno">' + esc(priceLabel(row.no)) +
+      (row.sub ? '<span class="sub">' + esc(row.sub) + "</span>" : "") +
+    "</span>" +
+    '<span class="prate">₹' + esc(row.rate) + "</span>";
+  return card
+    ? '<button class="pcell link" data-go="#/i/' + encodeURIComponent(card.number) + '">' +
+        inner + "</button>"
+    : '<div class="pcell">' + inner + "</div>";
+}
+
+function screenPrices(){
+  paint(
+    header("Price List", "Nett \u00b7 w.e.f. " + PRICE_EFFECTIVE) +
+    '<div class="pricewrap">' +
+      '<div class="listhead">' +
+        '<div class="searchbox">' + ICON_SEARCH +
+          '<input id="pricesearch" type="search" autocapitalize="characters" autocorrect="off" ' +
+            'spellcheck="false" enterkeyhint="search" placeholder="Search by card number" ' +
+            'aria-label="Search the price list by card number">' +
+        "</div>" +
+      "</div>" +
+      '<div class="divider"></div>' +
+      '<div class="pricebody" id="pricebody"></div>' +
+    "</div>"
+  );
+
+  var body = document.getElementById("pricebody");
+  var input = document.getElementById("pricesearch");
+
+  function draw(q){
+    var tables = PRICE_SHEET.map(function(sec){
+      var rows = q
+        ? sec.rows.filter(function(r){ return numKey(r.no).indexOf(q) === 0; })
+        : sec.rows;
+      if(!rows.length) return "";
+      return '<section class="ptable' + (sec.flag ? " flag" : "") + '">' +
+          "<h2>" + esc(sec.title) + "</h2>" +
+          '<div class="pgrid' + (sec.wide ? " wide" : "") + '">' +
+            rows.map(priceCellHTML).join("") +
+          "</div>" +
+        "</section>";
+    }).join("");
+
+    if(!tables){
+      body.innerHTML = '<div class="empty"><p>No card numbered ' + esc(q) +
+        ' on this price list.</p><button class="mbtn outlined" data-call="' +
+        SHOP_PHONE + '">Call office</button></div>';
+      return;
+    }
+
+    body.innerHTML =
+      '<p class="pnote">' + esc(PRICE_SEASON) + " nett rates, w.e.f. " +
+        esc(PRICE_EFFECTIVE) + ". Rates are per 100 cards, blank." +
+        (q ? "" : " Numbers shown in maroon open their design.") + "</p>" +
+      tables + PRICE_FOOT;
+  }
+
+  draw("");
+  input.addEventListener("input", function(){ draw(numKey(input.value)); });
+}
+
 function screenTerms(){
   paint(
     header("Terms & Condition") +
@@ -1105,6 +1295,7 @@ function route(){
   if(parts[0] === "g") return screenGroup(parts[1]);
   if(parts[0] === "c") return screenList(parts[1] || T.allSearch);
   if(parts[0] === "i") return screenDetail(decodeURIComponent(parts[1] || ""));
+  if(parts[0] === "prices") return screenPrices();
   if(parts[0] === "terms") return screenTerms();
   if(parts[0] === "about") return screenAbout();
   return screenHome();
