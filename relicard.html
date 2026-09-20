@@ -101,6 +101,7 @@ input{font:inherit}
 .mbtn.outlined{border:1px solid var(--outline);color:var(--brand)}
 .mbtn.outlined:active{background:var(--background)}
 .mbtn.pill{border-radius:22px}
+.mbtn.compact{padding:12px 15px;border-radius:28px;flex:none;white-space:nowrap}
 .mbtn .ic{
   width:17px;height:17px;stroke:currentColor;fill:none;
   vertical-align:-3px;margin-right:8px;
@@ -185,6 +186,8 @@ input{font:inherit}
 /* ---------- list ---------- */
 .listwrap{flex:1;display:flex;flex-direction:column;min-height:0}
 .listhead{background:var(--surface);padding:14px 16px 12px;flex:none}
+.listhead.row{display:flex;gap:10px;align-items:center}
+.listhead.row .searchbox{flex:1;min-width:0}
 .searchbox{position:relative}
 .searchbox input{
   width:100%;padding:14px 16px 14px 46px;
@@ -514,6 +517,16 @@ var TERMS =
 var PRICE_SEASON    = "2026-2027";
 var PRICE_EFFECTIVE = "17-09-2026";
 
+/* The printed colour sheet, photographed, for sending to a customer on
+   WhatsApp - the tables below render the same rates for reading on the phone,
+   but what a dealer forwards is the sheet itself. Same Dropbox account as the
+   catalogue, so replacing the file there reprints every share from then on
+   without touching this page. */
+var PRICE_IMAGE = dropboxDirect(
+  "https://www.dropbox.com/scl/fi/zeas45osd3w2i3xjbkiyo/" +
+  "PRICE-LIST-W.E.F.-wef-17-09-2026-COLOUR.jpg" +
+  "?rlkey=gmzjqevd8g4z7t02wqj9k3xti&dl=0");
+
 /* "no:rate" pairs, laid out ten to a line the way the sheet prints them. */
 function priceRows(spec){
   return spec.trim().split(/\s+/).map(function(pair){
@@ -574,6 +587,14 @@ var PRICE_FOOT =
     '<button class="mbtn filled" data-wa="' + SHOP_WA + '">WhatsApp</button>' +
   "</div>";
 
+/* Sent as the message body beside the photo, and on its own (with the image
+   link) when the platform will not attach files. */
+var PRICE_CAPTION =
+  "Reliance Creation\n" +
+  PRICE_SEASON + " nett price list, w.e.f. " + PRICE_EFFECTIVE + ".\n" +
+  "*GST extra as applicable.\n" +
+  "*Rates are for 100 cards blank.";
+
 /* strings.xml: journey */
 var JOURNEY = [
 "Reliance Creation, established in 1991 in the field of manufacturing wedding and invitation cards. It started manufacturing wedding cards at Rs. 28/- per 100. The company is now making wedding cards ranging from Rs. 10/- to Rs. 150/- per piece.",
@@ -607,6 +628,14 @@ var ICON_ADD =
 'stroke-linecap="round" stroke-linejoin="round">' +
 '<path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.4 9.6V20h13.2V9.6"/>' +
 '<path d="M12 12.4v4.8M9.6 14.8h4.8"/></svg>';
+
+/* three linked nodes: the platform share glyph */
+var ICON_SHARE =
+'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke-width="2" ' +
+'stroke-linecap="round" stroke-linejoin="round">' +
+'<circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/>' +
+'<circle cx="18" cy="19" r="2.6"/>' +
+'<path d="M8.3 10.8 15.7 6.4M8.3 13.2l7.4 4.4"/></svg>';
 
 /* price tag: the printed rate sheet */
 var ICON_TAG =
@@ -1113,6 +1142,69 @@ function shareCard(card){
   shareText(link);
 }
 
+/* The sheet is a single 3.3 MB photo, so it is fetched once and held for the
+   rest of the session rather than re-downloaded on every visit to the screen.
+   It deliberately does not share photoState: that is one slot, and the next
+   card the dealer opens would overwrite it. The activation rule from shareCard
+   applies unchanged - the bytes must be in hand before the tap, and the
+   outcome is read synchronously off .status rather than from a .then(). */
+var priceShot = null;   /* {status:"loading"|"ready"|"failed", file} */
+
+function prefetchPriceList(){
+  if(priceShot && priceShot.status !== "failed") return;   /* have it, or on the way */
+  if(!canSharePhotos()){ priceShot = null; return; }
+
+  var t = photoType(PRICE_IMAGE);
+  var state = {status:"loading", file:null};
+  priceShot = state;
+
+  fetchWithRetry(PRICE_IMAGE, 1)
+    .then(function(blob){
+      var file = new File([blob], "reliance-price-list-" + PRICE_EFFECTIVE + "." + t.ext,
+                          {type: t.mime});
+      if(!navigator.canShare({files:[file]})) throw new Error("unshareable file");
+      state.file = file;
+      state.status = "ready";
+    })
+    .catch(function(){ state.status = "failed"; });
+}
+
+function sharePriceList(){
+  if(sharing) return;
+  var link = PRICE_CAPTION + "\n" + PRICE_IMAGE;
+
+  /* Photo already downloaded: share inside the tap, activation intact. */
+  if(priceShot && priceShot.status === "ready"){
+    var file = priceShot.file;
+    sharing = true;
+    navigator.share({files:[file], text: PRICE_CAPTION}).catch(function(err){
+      if(err && err.name === "AbortError") return;   /* dealer closed the sheet */
+      /* Some share targets refuse files and text together and drop the photo.
+         Offer the photo on its own before giving up on it. */
+      return navigator.share({files:[file]}).catch(function(err2){
+        if(err2 && err2.name === "AbortError") return;
+        shareText(link);
+      });
+    }).then(function(){ sharing = false; }, function(){ sharing = false; });
+    return;
+  }
+
+  /* Still downloading: ask for another tap rather than share async and risk
+     the platform refusing to attach the photo. */
+  if(priceShot && priceShot.status === "loading"){
+    toast("Preparing the price list \u2014 tap Share again in a moment.");
+    return;
+  }
+
+  /* Never fetched, or the fetch failed. Send the caption and the image link so
+     the customer still gets the sheet, and start the download again so the
+     next tap can attach it. */
+  var why = shareBlocker(PRICE_IMAGE);
+  if(why) toast(why);
+  prefetchPriceList();
+  shareText(link);
+}
+
 /* Sweet box and gift cover codes print as "S.B.-7"/"GC-1", card numbers as
    plain digits that the sheet prefixes with "No.". */
 function priceLabel(no){ return /^\d/.test(no) ? "No." + no : no; }
@@ -1134,12 +1226,15 @@ function screenPrices(){
   paint(
     header("Price List", "Nett \u00b7 w.e.f. " + PRICE_EFFECTIVE) +
     '<div class="pricewrap">' +
-      '<div class="listhead">' +
+      '<div class="listhead row">' +
         '<div class="searchbox">' + ICON_SEARCH +
           '<input id="pricesearch" type="search" autocapitalize="characters" autocorrect="off" ' +
             'spellcheck="false" enterkeyhint="search" placeholder="Search by card number" ' +
             'aria-label="Search the price list by card number">' +
         "</div>" +
+        '<button class="mbtn filled compact" data-shareprices ' +
+          'aria-label="Share the price list on WhatsApp">' + ICON_SHARE +
+          "<span>Share</span></button>" +
       "</div>" +
       '<div class="divider"></div>' +
       '<div class="pricebody" id="pricebody"></div>' +
@@ -1179,6 +1274,12 @@ function screenPrices(){
 
   draw("");
   input.addEventListener("input", function(){ draw(numKey(input.value)); });
+
+  /* Start the download now so the sheet is attachable by the time Share is
+     tapped; a second visit reuses what the first one fetched. */
+  prefetchPriceList();
+  $screen.querySelector("[data-shareprices]")
+    .addEventListener("click", sharePriceList);
 }
 
 function screenTerms(){
